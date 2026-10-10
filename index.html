@@ -23,6 +23,7 @@
     .normal { background-color: #e6ffe6; color: #008000; }
     #loading { text-align: center; font-weight: bold; color: #0056b3; margin: 15px 0; }
     .key-toggle { font-size: 0.8em; color: #666; cursor: pointer; text-decoration: underline; margin-top: 5px; display: inline-block; }
+    footer { text-align: center; font-size: 0.8em; color: #666; padding: 15px 0 5px 0; margin-top: 20px; border-top: 1px solid #e0e0e0; }
   </style>
 </head>
 <body>
@@ -38,10 +39,16 @@
     <span class="key-toggle" onclick="toggleKeyField()">Change / View API Key</span>
 
     <label for="fluidType">Fluid Type:</label>
-    <input type="text" id="fluidType" placeholder="e.g. #2 Diesel, Chevron GST 46">
+    <input type="text" id="fluidType" placeholder="e.g. #2 Diesel, Chevron GST 46, Engine Oil">
 
     <label for="machineType">Machine / Application:</label>
-    <input type="text" id="machineType" placeholder="e.g. HPCR Fuel System, Gas Turbine">
+    <select id="machineType">
+      <option value="Engine Assy">Engine Assy</option>
+      <option value="HYDRAULIC">Hydraulic</option>
+      <option value="FINAL DRIVE">Final Drive</option>
+      <option value="SWING MACHINERY">Swing Machinery</option>
+      <option value="Other">Other / General Equipment</option>
+    </select>
 
     <label>Lab Report Image Capture:</label>
     <div class="camera-container">
@@ -63,9 +70,12 @@
   <div id="loading" style="display:none;">Analyzing report image...</div>
   <div id="results"></div>
 
+  <footer>
+    &copy; 2026 Troy Michael Goldman. All Rights Reserved.
+  </footer>
+
   <script>
-    // Paste your scrambled Base64 string inside the quotes below
-    const EMBEDDED_KEY_OBFUSCATED = "QVEuQWI4Uk42SU5GSWF6Y2RqWGU5anc5NTVsN1hRSFVUYy1OekJkMThFNy1BakgtNWFDMXc=";
+    const EMBEDDED_KEY_OBFUSCATED = "YOUR_SCRAMBLED_BASE64_STRING_HERE";
 
     let currentStream = null;
     let facingMode = "environment";
@@ -208,7 +218,7 @@
     async function analyzeReport() {
       const apiKey = getActiveApiKey();
       const fluidType = document.getElementById('fluidType').value.trim();
-      const machineType = document.getElementById('machineType').value.trim();
+      const machineType = document.getElementById('machineType').value;
 
       if (!apiKey) {
         alert("No API key detected. Please tap 'Change / View API Key' to set one.");
@@ -233,11 +243,46 @@
         const systemPrompt = `You are an expert industrial fluid analysis evaluator.
 Analyze the provided lab report image based on the specified fluid type and machine application.
 
-RULES:
-1. Evaluate parameters against standard industrial and ASTM limits.
-2. Assign flags ONLY as "NORMAL" or "ABNORMAL". Do NOT use "CRITICAL" or "MONITOR".
-3. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13) MUST be flagged as "ABNORMAL".
-4. Return output strictly as valid JSON matching this schema:
+GLOBAL RULE:
+1. Assign flags strictly as "NORMAL" or "ABNORMAL". Do NOT use "MONITOR" or "CRITICAL". Any value meeting or exceeding a "Monitor" or "Abnormal" threshold listed below MUST be flagged as "ABNORMAL".
+2. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13) MUST be flagged as "ABNORMAL".
+
+EQUIPMENT WEAR & CONTAMINANT HARD LIMITS (PPM / Index):
+Evaluate elements against the specific equipment type rules below. Flag as "ABNORMAL" if the detected result reaches or exceeds the lower limit listed:
+
+- Engine Assy:
+  • Iron (Fe): ABNORMAL if >= 100
+  • Copper (Cu): ABNORMAL if >= 25
+  • Chromium (Cr): ABNORMAL if >= 10
+  • Aluminum (Al): ABNORMAL if >= 8
+  • Silicon (Si): ABNORMAL if >= 20
+  • Lead (Pb): ABNORMAL if >= 40
+  • Sodium (Na): ABNORMAL if >= 50
+  • PQ Index: ABNORMAL if >= 24
+
+- HYDRAULIC:
+  • Iron (Fe): ABNORMAL if >= 40
+  • Copper (Cu): ABNORMAL if >= 200
+  • Silicon (Si): ABNORMAL if >= 10
+  • Lead (Pb): ABNORMAL if >= 30
+  • PQ Index: ABNORMAL if >= 16
+
+- FINAL DRIVE:
+  • Iron (Fe): ABNORMAL if >= 500
+  • Copper (Cu): ABNORMAL if >= 100
+  • Silicon (Si): ABNORMAL if >= 30
+  • Lead (Pb): ABNORMAL if >= 100
+  • PQ Index: ABNORMAL if >= 166
+
+- SWING MACHINERY:
+  • Iron (Fe): ABNORMAL if >= 400
+  • Copper (Cu): ABNORMAL if >= 100
+  • Silicon (Si): ABNORMAL if >= 40
+  • Lead (Pb): ABNORMAL if >= 40
+  • PQ Index: ABNORMAL if >= 51
+
+JSON SCHEMA:
+Return output strictly as valid JSON matching this schema:
 {
   "evaluations": [
     {
@@ -256,7 +301,7 @@ RULES:
           contents: [{
             parts: [
               { inline_data: { mime_type: mimeType, data: imageRaw } },
-              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nAnalyze line-by-line.` }
+              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nAnalyze line-by-line using the matching equipment rules.` }
             ]
           }],
           generationConfig: { responseMimeType: "application/json" }
@@ -293,6 +338,17 @@ RULES:
         return;
       }
 
+      // Filter out NORMAL items so only ABNORMAL flags display
+      const flaggedEvaluations = evaluations.filter(e => e.flag === 'ABNORMAL');
+
+      if (flaggedEvaluations.length === 0) {
+        document.getElementById('results').innerHTML = `
+          <div style="background-color: #e6ffe6; color: #008000; padding: 15px; border-radius: 8px; border: 1px solid #b2e6b2; text-align: center; font-weight: bold; margin-top: 15px;">
+            All parameters are within normal operating limits. No abnormal issues detected.
+          </div>`;
+        return;
+      }
+
       let html = `<table>
         <thead>
           <tr>
@@ -306,14 +362,13 @@ RULES:
         </thead>
         <tbody>`;
 
-      evaluations.forEach(e => {
-        const badgeClass = e.flag === 'ABNORMAL' ? 'abnormal' : 'normal';
+      flaggedEvaluations.forEach(e => {
         html += `<tr>
           <td>${e.lineNumber || ''}</td>
           <td>${e.testName || ''}</td>
           <td>${e.parameterName || ''}</td>
           <td>${e.result || ''}</td>
-          <td class="${badgeClass}">${e.flag}</td>
+          <td class="abnormal">${e.flag}</td>
           <td>${e.reason || ''}</td>
         </tr>`;
       });
