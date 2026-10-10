@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Industrial Fluid Analyzer v1.1.1</title>
+  <title>Industrial Fluid Analyzer v1.1.5</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f4f9; color: #333; margin: 0; }
     .card { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -33,7 +33,7 @@
 <body>
 
   <h2 style="display: flex; align-items: center; justify-content: space-between;">
-    <span>Industrial Fluid Analyzer <span class="version-tag">v1.1.1</span></span>
+    <span>Industrial Fluid Analyzer <span class="version-tag">v1.1.5</span></span>
   </h2>
 
   <div class="card">
@@ -77,12 +77,12 @@
   </div>
 
   <footer>
-    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.1.1
+    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.1.5
   </footer>
 
   <script>
-    // Encoded AQ.Ab8RN6Jaf_mqCT3kEirh4uDdJWDMgmurseoNUypmMAhQnDF3kQ
-    const OBFUSCATED_KEY = "QVEuQWI4Uk42SmFmX21xQ1Qza0Vpcmg0dURkSldETWdtdXJzZW9OVXlwbU1BaFFuREYza1E=";
+    // PASTE YOUR AIzaSy... API KEY INSIDE THE QUOTES BELOW
+    const GEMINI_API_KEY = "AIzaSy_YOUR_UNBILLED_PROJECT_KEY_HERE";
 
     let currentStream = null;
     let facingMode = "environment";
@@ -90,14 +90,6 @@
     let currentEvaluations = [];
 
     let ruleMemory = JSON.parse(localStorage.getItem('fluid_analyzer_rule_memory') || '{}');
-
-    function getApiKey() {
-      try {
-        return atob(OBFUSCATED_KEY);
-      } catch (e) {
-        return "";
-      }
-    }
 
     async function startCamera() {
       stopCamera();
@@ -198,10 +190,14 @@
     async function analyzeReport() {
       const fluidType = document.getElementById('fluidType').value.trim();
       const machineType = document.getElementById('machineType').value;
-      const apiKey = getApiKey();
 
       if (!capturedImageBase64) {
         alert("Please capture or select a lab report image first.");
+        return;
+      }
+
+      if (!GEMINI_API_KEY || GEMINI_API_KEY.includes("YOUR_UNBILLED")) {
+        alert("Please paste your AIzaSy API key on line 122 of index.html.");
         return;
       }
 
@@ -247,14 +243,11 @@ RULES:
           generationConfig: { responseMimeType: "application/json" }
         };
 
-        const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
