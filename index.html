@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Industrial Fluid Analyzer v1.0.8</title>
+  <title>Industrial Fluid Analyzer v1.0.11</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f4f9; color: #333; margin: 0; }
     .card { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -34,7 +34,7 @@
 <body>
 
   <h2 style="display: flex; align-items: center; justify-content: space-between;">
-    <span>Industrial Fluid Analyzer <span class="version-tag">v1.0.8</span></span>
+    <span>Industrial Fluid Analyzer <span class="version-tag">v1.0.11</span></span>
   </h2>
 
   <div class="card">
@@ -85,11 +85,12 @@
   </div>
 
   <footer>
-    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.0.8
+    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.0.11
   </footer>
 
   <script>
-    const EMBEDDED_KEY_OBFUSCATED = "QVEuQWI4Uk42SU5GSWF6Y2RqWGU5anc5NTVsN1hRSFVUYy1OekJkMThFNy1BakhDMXc=";
+    // Embedded Base64 for AQ.Ab8RN6Jaf_mqCT3kEirh4uDdJWDMgmurseoNUypmMAhQnDF3kQ
+    const EMBEDDED_KEY_OBFUSCATED = "QVEuQWI4Uk42SmFmX21xQ1Qza0Vpcmg0dURkSldETWdtdXJzZW9OVXlwbU1BaFFuREYza1E=";
 
     let currentStream = null;
     let facingMode = "environment";
@@ -112,7 +113,7 @@
         try {
           return atob(EMBEDDED_KEY_OBFUSCATED);
         } catch (e) {
-          console.error("Failed to decode system API key.");
+          console.error("Failed to decode API key.");
         }
       }
       return "";
@@ -124,10 +125,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      const savedKey = localStorage.getItem('gemini_api_key');
-      if (savedKey) {
-        document.getElementById('apiKey').value = savedKey;
-      }
+      localStorage.removeItem('gemini_api_key');
     });
 
     document.getElementById('apiKey').addEventListener('input', (e) => {
@@ -241,7 +239,7 @@
       const machineType = document.getElementById('machineType').value;
 
       if (!apiKey) {
-        alert("No API key detected. Please tap 'Change / View API Key' to set one.");
+        alert("No API key detected.");
         return;
       }
 
@@ -296,8 +294,9 @@ RULES:
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json'
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
           },
           body: JSON.stringify(payload)
         });
@@ -432,7 +431,7 @@ RULES:
         </tr>`;
       });
 
-      html += `</tbody>addClass`;
+      html += `</tbody></table>`;
       document.getElementById('results').innerHTML = html;
     }
   </script>
