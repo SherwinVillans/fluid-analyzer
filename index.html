@@ -19,13 +19,15 @@
     table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; }
     th, td { border: 1px solid #e0e0e0; padding: 10px; text-align: left; font-size: 0.85em; }
     th { background: #0056b3; color: white; }
-    .flag-select { padding: 4px 8px; font-weight: bold; border-radius: 4px; border: 1px solid #ccc; width: auto; margin: 0; }
-    .flag-abnormal { background-color: #ffdddd; color: #b30000; border-color: #ffaaaa; }
+    .flag-select { padding: 6px 8px; font-weight: bold; border-radius: 4px; border: 1px solid #ccc; width: 100%; margin: 0; font-size: 0.85em; }
     .flag-normal { background-color: #e6ffe6; color: #008000; border-color: #b2e6b2; }
+    .flag-monitor { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    .flag-abnormal { background-color: #ffe5d0; color: #d9534f; border-color: #f5c6cb; }
+    .flag-critical { background-color: #ffdddd; color: #b30000; border-color: #ffaaaa; font-weight: 900; }
     #loading { text-align: center; font-weight: bold; color: #0056b3; margin: 15px 0; }
     .key-toggle { font-size: 0.8em; color: #666; cursor: pointer; text-decoration: underline; margin-top: 5px; display: inline-block; }
     footer { text-align: center; font-size: 0.8em; color: #666; padding: 15px 0 5px 0; margin-top: 20px; border-top: 1px solid #e0e0e0; }
-    .memory-badge { font-size: 0.7em; background: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+    .memory-badge { font-size: 0.7em; background: #0056b3; color: #ffffff; padding: 2px 6px; border-radius: 4px; margin-top: 4px; display: inline-block; }
   </style>
 </head>
 <body>
@@ -72,7 +74,7 @@
   <div id="loading" style="display:none;">Analyzing report image...</div>
   
   <div id="resultsCard" class="card" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <h3 style="margin:0;">Analysis Results</h3>
       <button type="button" onclick="clearSavedOverrides()" style="width:auto; padding:6px 12px; font-size:0.75em; background:#dc3545;">Reset Learned Rules</button>
     </div>
@@ -91,8 +93,7 @@
     let capturedImageBase64 = null;
     let currentEvaluations = [];
 
-    // Load saved manual overrides map from localStorage
-    // Key format: "MACHINE_TYPE::PARAMETER_NAME" -> "NORMAL" | "ABNORMAL"
+    // Memory format: "MACHINE_TYPE::PARAMETER_NAME" -> "NORMAL" | "MONITOR" | "ABNORMAL" | "CRITICAL"
     let ruleMemory = JSON.parse(localStorage.getItem('fluid_analyzer_rule_memory') || '{}');
 
     function getActiveApiKey() {
@@ -260,7 +261,7 @@ Analyze the provided lab report image completely and extract ALL line items and 
 
 RULES:
 1. Extract and evaluate ALL tested parameters (viscosity, wear metals, ISO cleanliness codes, additive levels, water content, contaminants, etc.).
-2. Assign flags strictly as "NORMAL" or "ABNORMAL". Do NOT use "MONITOR" or "CRITICAL".
+2. Assign flags strictly as one of: "NORMAL", "MONITOR", "ABNORMAL", or "CRITICAL".
 3. Return output strictly as valid JSON matching this schema:
 {
   "evaluations": [
@@ -269,7 +270,7 @@ RULES:
       "testName": "string",
       "parameterName": "string",
       "result": "string",
-      "flag": "NORMAL or ABNORMAL",
+      "flag": "NORMAL, MONITOR, ABNORMAL, or CRITICAL",
       "reason": "string"
     }
   ]
@@ -280,7 +281,7 @@ RULES:
           contents: [{
             parts: [
               { inline_data: { mime_type: mimeType, data: imageRaw } },
-              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nExtract and evaluate all parameters line-by-line.` }
+              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nExtract and evaluate all parameters line-by-line using four flag categories: NORMAL, MONITOR, ABNORMAL, CRITICAL.` }
             ]
           }],
           generationConfig: { responseMimeType: "application/json" }
@@ -313,7 +314,6 @@ RULES:
     }
 
     function applyStoredRulesAndRender(machineType) {
-      // Check each parameter against user's saved overrides
       currentEvaluations.forEach(item => {
         const ruleKey = `${machineType}::${(item.parameterName || '').trim().toUpperCase()}`;
         if (ruleMemory[ruleKey]) {
@@ -327,19 +327,34 @@ RULES:
       renderResultsTable(machineType);
     }
 
+    function getFlagStyleClass(flag) {
+      switch ((flag || '').toUpperCase()) {
+        case 'MONITOR': return 'flag-monitor';
+        case 'ABNORMAL': return 'flag-abnormal';
+        case 'CRITICAL': return 'flag-critical';
+        default: return 'flag-normal';
+      }
+    }
+
     function handleFlagChange(index, machineType, selectElement) {
       const newFlag = selectElement.value;
       const item = currentEvaluations[index];
       item.flag = newFlag;
       item.isOverridden = true;
 
-      // Save override rule permanently to localStorage
       const ruleKey = `${machineType}::${(item.parameterName || '').trim().toUpperCase()}`;
       ruleMemory[ruleKey] = newFlag;
       localStorage.setItem('fluid_analyzer_rule_memory', JSON.stringify(ruleMemory));
 
-      // Refresh styling
-      selectElement.className = `flag-select ${newFlag === 'ABNORMAL' ? 'flag-abnormal' : 'flag-normal'}`;
+      selectElement.className = `flag-select ${getFlagStyleClass(newFlag)}`;
+      
+      const parentTd = selectElement.parentElement;
+      if (!parentTd.querySelector('.memory-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'memory-badge';
+        badge.innerText = 'Learned';
+        parentTd.appendChild(badge);
+      }
     }
 
     function clearSavedOverrides() {
@@ -366,16 +381,16 @@ RULES:
             <th>Line</th>
             <th>Test / Parameter</th>
             <th>Result</th>
-            <th>Flag Status (Tap to adjust)</th>
+            <th>Flag Status</th>
             <th>Reason</th>
           </tr>
         </thead>
         <tbody>`;
 
       currentEvaluations.forEach((e, idx) => {
-        const isAbnormal = e.flag === 'ABNORMAL';
-        const selectClass = isAbnormal ? 'flag-abnormal' : 'flag-normal';
-        const memoryBadge = e.isOverridden ? `<span class="memory-badge">Learned</span>` : '';
+        const currentFlag = (e.flag || 'NORMAL').toUpperCase();
+        const selectClass = getFlagStyleClass(currentFlag);
+        const memoryBadge = e.isOverridden ? `<br><span class="memory-badge">Learned</span>` : '';
 
         html += `<tr>
           <td>${e.lineNumber || ''}</td>
@@ -383,8 +398,10 @@ RULES:
           <td>${e.result || ''}</td>
           <td>
             <select class="flag-select ${selectClass}" onchange="handleFlagChange(${idx}, '${machineType}', this)">
-              <option value="NORMAL" ${!isAbnormal ? 'selected' : ''}>NORMAL</option>
-              <option value="ABNORMAL" ${isAbnormal ? 'selected' : ''}>ABNORMAL</option>
+              <option value="NORMAL" ${currentFlag === 'NORMAL' ? 'selected' : ''}>NORMAL</option>
+              <option value="MONITOR" ${currentFlag === 'MONITOR' ? 'selected' : ''}>MONITOR</option>
+              <option value="ABNORMAL" ${currentFlag === 'ABNORMAL' ? 'selected' : ''}>ABNORMAL</option>
+              <option value="CRITICAL" ${currentFlag === 'CRITICAL' ? 'selected' : ''}>CRITICAL</option>
             </select>
             ${memoryBadge}
           </td>
