@@ -48,8 +48,8 @@
     <select id="machineType">
       <option value="Engine Assy">Engine Assy</option>
       <option value="HYDRAULIC">Hydraulic</option>
-      <option value="FINAL DRIVE">Final Drive</option>
-      <option value="SWING MACHINERY">Swing Machinery</option>
+      <option value="FINAL DRIVE">Final Drive (Gearbox)</option>
+      <option value="SWING MACHINERY">Swing Machinery (Gearbox)</option>
       <option value="Other">Other / General Equipment</option>
     </select>
 
@@ -319,6 +319,14 @@ GLOBAL RULE:
 1. Assign flags strictly as "NORMAL" or "ABNORMAL". Do NOT use "MONITOR" or "CRITICAL". Any value meeting or exceeding a "Monitor" or "Abnormal" threshold listed below MUST be flagged as "ABNORMAL".
 2. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13) MUST be flagged as "ABNORMAL".
 
+ISO 4406 CLEANLINESS HARD LIMITS BY APPLICATION:
+- HYDRAULICS:
+  • Normal up to xx/18/15.
+  • ABNORMAL if the second digit (6µm micron scale) is 19 or higher (e.g. xx/19/xx, 20/19/16).
+- GEARBOXES (Final Drive, Swing Machinery, Industrial Gearboxes):
+  • Highest acceptable normal level is xx/19/16.
+  • ABNORMAL if the second digit (6µm micron scale) is 20 or higher (e.g. xx/20/xx, 22/20/17).
+
 EQUIPMENT WEAR & CONTAMINANT HARD LIMITS (PPM / Index):
 Evaluate elements against the specific equipment type rules below. Flag as "ABNORMAL" if the detected result reaches or exceeds the lower limit listed:
 
@@ -339,14 +347,14 @@ Evaluate elements against the specific equipment type rules below. Flag as "ABNO
   • Lead (Pb): ABNORMAL if >= 30
   • PQ Index: ABNORMAL if >= 16
 
-- FINAL DRIVE:
+- FINAL DRIVE (Gearbox):
   • Iron (Fe): ABNORMAL if >= 500
   • Copper (Cu): ABNORMAL if >= 100
   • Silicon (Si): ABNORMAL if >= 30
   • Lead (Pb): ABNORMAL if >= 100
   • PQ Index: ABNORMAL if >= 166
 
-- SWING MACHINERY:
+- SWING MACHINERY (Gearbox):
   • Iron (Fe): ABNORMAL if >= 400
   • Copper (Cu): ABNORMAL if >= 100
   • Silicon (Si): ABNORMAL if >= 40
