@@ -24,6 +24,9 @@
     #loading { text-align: center; font-weight: bold; color: #0056b3; margin: 15px 0; }
     .key-toggle { font-size: 0.8em; color: #666; cursor: pointer; text-decoration: underline; margin-top: 5px; display: inline-block; }
     footer { text-align: center; font-size: 0.8em; color: #666; padding: 15px 0 5px 0; margin-top: 20px; border-top: 1px solid #e0e0e0; }
+    .rule-input-group { display: flex; gap: 8px; margin-bottom: 8px; }
+    .rule-input-group input { margin: 0; }
+    .rule-input-group button { margin: 0; width: auto; padding: 0 16px; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -49,6 +52,25 @@
       <option value="SWING MACHINERY">Swing Machinery</option>
       <option value="Other">Other / General Equipment</option>
     </select>
+
+    <!-- Custom Rule Management Section -->
+    <div style="background: #f8f9fa; border: 1px dashed #0056b3; padding: 12px; border-radius: 8px; margin: 10px 0;">
+      <label style="cursor: pointer; color: #0056b3; margin-top: 0;" onclick="toggleRulePanel()">
+        ⚙️ Edit Custom Equipment Threshold Rules
+      </label>
+      
+      <div id="rulePanel" style="display: none; margin-top: 10px;">
+        <p style="font-size: 0.8em; color: #666; margin: 0 0 8px 0;">Add custom parameter limits to flag as ABNORMAL when met or exceeded.</p>
+        
+        <div class="rule-input-group">
+          <input type="text" id="customParamName" placeholder="Parameter (e.g. Iron, Viscosity)">
+          <input type="number" id="customParamLimit" placeholder="Limit (e.g. 50)">
+          <button type="button" onclick="addCustomRule()" style="background: #28a745;">Add</button>
+        </div>
+
+        <ul id="ruleList" style="font-size: 0.85em; padding-left: 20px; margin: 8px 0 0 0;"></ul>
+      </div>
+    </div>
 
     <label>Lab Report Image Capture:</label>
     <div class="camera-container">
@@ -80,6 +102,7 @@
     let currentStream = null;
     let facingMode = "environment";
     let capturedImageBase64 = null;
+    let customRules = JSON.parse(localStorage.getItem('user_fluid_rules') || '[]');
 
     function getActiveApiKey() {
       const customKey = document.getElementById('apiKey').value.trim();
@@ -103,11 +126,54 @@
       keySection.style.display = (keySection.style.display === 'none') ? 'block' : 'none';
     }
 
+    function toggleRulePanel() {
+      const panel = document.getElementById('rulePanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      renderRuleList();
+    }
+
+    function addCustomRule() {
+      const param = document.getElementById('customParamName').value.trim();
+      const limit = document.getElementById('customParamLimit').value.trim();
+
+      if (!param || !limit) {
+        alert("Please enter both a parameter name and numerical threshold limit.");
+        return;
+      }
+
+      customRules.push({ param, limit });
+      localStorage.setItem('user_fluid_rules', JSON.stringify(customRules));
+      
+      document.getElementById('customParamName').value = '';
+      document.getElementById('customParamLimit').value = '';
+      renderRuleList();
+    }
+
+    function deleteCustomRule(index) {
+      customRules.splice(index, 1);
+      localStorage.setItem('user_fluid_rules', JSON.stringify(customRules));
+      renderRuleList();
+    }
+
+    function renderRuleList() {
+      const list = document.getElementById('ruleList');
+      list.innerHTML = '';
+      if (customRules.length === 0) {
+        list.innerHTML = '<li style="color:#888;">No custom rules added.</li>';
+        return;
+      }
+      customRules.forEach((rule, idx) => {
+        list.innerHTML += `<li><b>${rule.param}</b>: ABNORMAL if >= ${rule.limit} 
+          <a href="#" onclick="deleteCustomRule(${idx}); return false;" style="color:red; margin-left:10px;">[Delete]</a></li>`;
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('gemini_api_key');
       if (savedKey) {
         document.getElementById('apiKey').value = savedKey;
       }
+      renderRuleList();
     });
 
     document.getElementById('apiKey').addEventListener('input', (e) => {
@@ -240,6 +306,12 @@
           capturedImageBase64.indexOf(";")
         ) || "image/jpeg";
 
+        let userRulePrompt = "";
+        if (customRules.length > 0) {
+          userRulePrompt = "\nUSER-DEFINED CUSTOM OVERRIDE RULES:\n" + 
+            customRules.map(r => `• ${r.param}: ABNORMAL if >= ${r.limit}`).join('\n');
+        }
+
         const systemPrompt = `You are an expert industrial fluid analysis evaluator.
 Analyze the provided lab report image based on the specified fluid type and machine application.
 
@@ -280,6 +352,7 @@ Evaluate elements against the specific equipment type rules below. Flag as "ABNO
   • Silicon (Si): ABNORMAL if >= 40
   • Lead (Pb): ABNORMAL if >= 40
   • PQ Index: ABNORMAL if >= 51
+${userRulePrompt}
 
 JSON SCHEMA:
 Return output strictly as valid JSON matching this schema:
@@ -338,7 +411,6 @@ Return output strictly as valid JSON matching this schema:
         return;
       }
 
-      // Filter out NORMAL items so only ABNORMAL flags display
       const flaggedEvaluations = evaluations.filter(e => e.flag === 'ABNORMAL');
 
       if (flaggedEvaluations.length === 0) {
