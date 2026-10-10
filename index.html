@@ -4,145 +4,207 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Industrial Fluid Analyzer</title>
-  <!-- Tailwind CSS CDN for modern responsive UI -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Inter Font -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f4f9; color: #333; margin: 0; }
+    .card { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    label { font-weight: bold; font-size: 0.9em; display: block; margin-top: 10px; }
+    input, select, button { width: 100%; padding: 12px; margin: 6px 0 12px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 1em; }
+    button { background: #0056b3; color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; }
+    button:active { background: #003d80; }
+    .secondary-btn { background: #6c757d; margin-top: 2px; }
+    .camera-container { position: relative; width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin: 10px 0; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+    video { width: 100%; max-height: 350px; object-fit: cover; display: none; }
+    img#preview { width: 100%; max-height: 350px; object-fit: contain; display: none; }
+    .placeholder-text { color: #aaa; font-size: 0.9em; text-align: center; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; }
+    th, td { border: 1px solid #e0e0e0; padding: 10px; text-align: left; font-size: 0.85em; }
+    th { background: #0056b3; color: white; }
+    .abnormal { background-color: #ffdddd; color: #b30000; font-weight: bold; }
+    .normal { background-color: #e6ffe6; color: #008000; }
+    #loading { text-align: center; font-weight: bold; color: #0056b3; margin: 15px 0; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 antialiased p-4 sm:p-6 md:p-8">
+<body>
 
-  <div class="max-w-3xl mx-auto space-y-6">
+  <h2>Industrial Fluid Analyzer</h2>
+
+  <div class="card">
+    <label for="apiKey">Gemini API Key:</label>
+    <input type="password" id="apiKey" placeholder="Enter API Key (Saves automatically)">
+
+    <label for="fluidType">Fluid Type:</label>
+    <input type="text" id="fluidType" placeholder="e.g. #2 Diesel, Chevron GST 46">
+
+    <label for="machineType">Machine / Application:</label>
+    <input type="text" id="machineType" placeholder="e.g. HPCR Fuel System, Gas Turbine">
+
+    <label>Lab Report Image Capture:</label>
+    <div class="camera-container">
+      <div id="placeholder" class="placeholder-text">Camera offline. Tap "Start Camera" or select a file.</div>
+      <video id="video" autoplay playsinline></video>
+      <img id="preview" alt="Captured preview">
+    </div>
+
+    <button type="button" id="startCamBtn" onclick="startCamera()">Start Camera</button>
+    <button type="button" id="captureBtn" onclick="capturePhoto()" style="display:none; background:#28a745;">Snap Photo</button>
+    <button type="button" id="switchCamBtn" class="secondary-btn" onclick="switchCamera()" style="display:none;">Switch Camera</button>
     
-    <!-- Header -->
-    <header class="text-center sm:text-left border-b border-slate-200 pb-4">
-      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Industrial Fluid Analyzer</h1>
-      <p class="text-sm sm:text-base text-slate-500 mt-1">Automated lab report evaluation & ISO cleanliness compliance auditor</p>
-    </header>
+    <label for="fileInput" style="margin-top:15px;">Or Upload File from Gallery:</label>
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
 
-    <!-- Configuration & Input Card -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-4">
-      
-      <!-- API Key Field -->
-      <div>
-        <label for="apiKey" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-          Gemini API Key
-        </label>
-        <input 
-          type="password" 
-          id="apiKey" 
-          placeholder="Paste API Key (Saved automatically in local browser storage)" 
-          class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        >
-      </div>
-
-      <!-- Fluid & Machine Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="fluidType" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-            Fluid Type
-          </label>
-          <input 
-            type="text" 
-            id="fluidType" 
-            placeholder="e.g. #2 Diesel, Chevron GST 46" 
-            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-          >
-        </div>
-
-        <div>
-          <label for="machineType" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-            Machine / Application
-          </label>
-          <input 
-            type="text" 
-            id="machineType" 
-            placeholder="e.g. HPCR Fuel System, Gas Turbine" 
-            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-          >
-        </div>
-      </div>
-
-      <!-- Option B Rear Camera Input -->
-      <div>
-        <label for="imageInput" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-          Lab Report Image (Opens Camera Directly)
-        </label>
-        <div class="flex items-center justify-center w-full">
-          <label for="imageInput" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
-            <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-              <svg class="w-8 h-8 mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-              <p class="text-xs text-slate-600 font-medium" id="fileStatusText">Tap to capture photo with rear camera</p>
-            </div>
-            <!-- Option B: capture="environment" launches rear camera immediately -->
-            <input type="file" id="imageInput" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelection(this)">
-          </label>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <button 
-        onclick="analyzeReport()" 
-        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-4 rounded-lg shadow transition duration-150 ease-in-out text-sm tracking-wide"
-      >
-        Analyze Lab Report
-      </button>
-    </div>
-
-    <!-- Status & Loading Bar -->
-    <div id="loading" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-4 text-center space-y-2">
-      <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      <p class="text-xs sm:text-sm font-medium text-blue-800">Processing image OCR & auditing specifications with Gemini...</p>
-    </div>
-
-    <!-- Error Message Alert -->
-    <div id="errorAlert" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-red-800 text-xs sm:text-sm font-medium"></div>
-
-    <!-- Results Output Section -->
-    <div id="resultsContainer" class="hidden space-y-3">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900">Evaluation Summary</h2>
-        <span id="evaluationTimestamp" class="text-xs text-slate-500"></span>
-      </div>
-
-      <div class="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-              <th class="py-3 px-3.5">Line</th>
-              <th class="py-3 px-3.5">Test</th>
-              <th class="py-3 px-3.5">Parameter</th>
-              <th class="py-3 px-3.5">Result</th>
-              <th class="py-3 px-3.5 text-center">Flag</th>
-              <th class="py-3 px-3.5">Reason</th>
-            </tr>
-          </thead>
-          <tbody id="resultsTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
-            <!-- Dynamic rows will be rendered here -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
+    <button type="button" onclick="analyzeReport()" style="margin-top:15px; background:#0056b3;">Analyze Lab Report</button>
   </div>
 
+  <div id="loading" style="display:none;">Analyzing report image...</div>
+  <div id="results"></div>
+
   <script>
-    // System instruction rules enforced across all executions
-    const SYSTEM_PROMPT = `You are an expert industrial fluid analysis evaluator.
+    let currentStream = null;
+    let facingMode = "environment";
+    let capturedImageBase64 = null;
+
+    // Load saved API key from localStorage on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedKey = localStorage.getItem('gemini_api_key');
+      if (savedKey) {
+        document.getElementById('apiKey').value = savedKey;
+      }
+    });
+
+    // Save API key whenever user changes it
+    document.getElementById('apiKey').addEventListener('input', (e) => {
+      localStorage.setItem('gemini_api_key', e.target.value.trim());
+    });
+
+    async function startCamera() {
+      stopCamera();
+      const video = document.getElementById('video');
+      const preview = document.getElementById('preview');
+      const placeholder = document.getElementById('placeholder');
+
+      preview.style.display = 'none';
+      placeholder.style.display = 'none';
+
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: facingMode } }
+        });
+      } catch (err) {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode }
+        });
+      }
+
+      video.srcObject = currentStream;
+      video.style.display = 'block';
+      document.getElementById('startCamBtn').style.display = 'none';
+      document.getElementById('captureBtn').style.display = 'block';
+      document.getElementById('switchCamBtn').style.display = 'block';
+    }
+
+    function stopCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+      }
+    }
+
+    function switchCamera() {
+      facingMode = (facingMode === "environment") ? "user" : "environment";
+      startCamera();
+    }
+
+    function capturePhoto() {
+      const video = document.getElementById('video');
+      const preview = document.getElementById('preview');
+      const canvas = document.createElement('canvas');
+
+      const maxDim = 1280;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, width, height);
+
+      capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+      preview.src = capturedImageBase64;
+      preview.style.display = 'block';
+      video.style.display = 'none';
+
+      stopCamera();
+
+      document.getElementById('captureBtn').style.display = 'none';
+      document.getElementById('switchCamBtn').style.display = 'none';
+      document.getElementById('startCamBtn').style.display = 'block';
+      document.getElementById('startCamBtn').innerText = 'Retake Photo';
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      stopCamera();
+      document.getElementById('video').style.display = 'none';
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('captureBtn').style.display = 'none';
+      document.getElementById('switchCamBtn').style.display = 'none';
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        capturedImageBase64 = e.target.result;
+        const preview = document.getElementById('preview');
+        preview.src = capturedImageBase64;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function analyzeReport() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const fluidType = document.getElementById('fluidType').value.trim();
+      const machineType = document.getElementById('machineType').value.trim();
+
+      if (!apiKey) {
+        alert("Please enter a valid Gemini API key.");
+        return;
+      }
+
+      if (!capturedImageBase64) {
+        alert("Please capture or select a lab report image first.");
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('results').innerHTML = '';
+
+      try {
+        const imageRaw = capturedImageBase64.split(',')[1];
+        const mimeType = capturedImageBase64.substring(
+          capturedImageBase64.indexOf(":") + 1,
+          capturedImageBase64.indexOf(";")
+        ) || "image/jpeg";
+
+        const systemPrompt = `You are an expert industrial fluid analysis evaluator.
 Analyze the provided lab report image based on the specified fluid type and machine application.
 
-RULES FOR EVALUATION:
-1. Evaluate each line item against standard industrial and ASTM limits.
-2. Assign a flag of ONLY "NORMAL" or "ABNORMAL". Do NOT use "CRITICAL" or "MONITOR".
-3. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13, 21/20/18, etc.) MUST be flagged as "ABNORMAL".
-4. Output strictly valid JSON matching this schema:
+RULES:
+1. Evaluate parameters against standard industrial and ASTM limits.
+2. Assign flags ONLY as "NORMAL" or "ABNORMAL". Do NOT use "CRITICAL" or "MONITOR".
+3. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13) MUST be flagged as "ABNORMAL".
+4. Return output strictly as valid JSON matching this schema:
 {
   "evaluations": [
     {
@@ -156,74 +218,19 @@ RULES FOR EVALUATION:
   ]
 }`;
 
-    // Auto-load saved key on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedKey = localStorage.getItem('industrial_fluid_api_key');
-      if (savedKey) {
-        document.getElementById('apiKey').value = savedKey;
-      }
-    });
-
-    // Auto-save key on input
-    document.getElementById('apiKey').addEventListener('input', (e) => {
-      localStorage.setItem('industrial_fluid_api_key', e.target.value.trim());
-    });
-
-    function handleFileSelection(input) {
-      const statusText = document.getElementById('fileStatusText');
-      if (input.files && input.files[0]) {
-        statusText.innerText = `Captured: ${input.files[0].name}`;
-        statusText.classList.add('text-blue-600', 'font-semibold');
-      } else {
-        statusText.innerText = 'Tap to capture photo with rear camera';
-        statusText.classList.remove('text-blue-600', 'font-semibold');
-      }
-    }
-
-    async function analyzeReport() {
-      const apiKey = document.getElementById('apiKey').value.trim();
-      const fluidType = document.getElementById('fluidType').value.trim() || 'Unspecified Fluid';
-      const machineType = document.getElementById('machineType').value.trim() || 'Unspecified Machine';
-      const fileInput = document.getElementById('imageInput');
-
-      const loadingDiv = document.getElementById('loading');
-      const errorDiv = document.getElementById('errorAlert');
-      const resultsContainer = document.getElementById('resultsContainer');
-
-      // Hide alerts & existing output
-      errorDiv.classList.add('hidden');
-      resultsContainer.classList.add('hidden');
-
-      if (!apiKey) {
-        showError("Please enter your Gemini API key.");
-        return;
-      }
-
-      if (!fileInput.files || !fileInput.files[0]) {
-        showError("Please capture or select a lab report photo.");
-        return;
-      }
-
-      loadingDiv.classList.remove('hidden');
-
-      try {
-        const file = fileInput.files[0];
-        const base64Data = await convertBase64(file);
-        const rawImageBytes = base64Data.split(',')[1];
-
         const payload = {
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{
             parts: [
-              { inline_data: { mime_type: file.type || "image/jpeg", data: rawImageBytes } },
-              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nAnalyze all parameters and assign flags.` }
+              { inline_data: { mime_type: mimeType, data: imageRaw } },
+              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nAnalyze line-by-line.` }
             ]
           }],
           generationConfig: { responseMimeType: "application/json" }
         };
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-        
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -233,76 +240,53 @@ RULES FOR EVALUATION:
         const data = await response.json();
 
         if (data.error) {
-          throw new Error(data.error.message || "API error occurred");
+          throw new Error(data.error.message || "API Error");
         }
 
-        const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!candidateText) {
-          throw new Error("Invalid or empty response structure from model.");
-        }
+        const jsonText = data.candidates[0].content.parts[0].text;
+        const parsed = JSON.parse(jsonText);
 
-        const parsedResult = JSON.parse(candidateText);
-        renderEvaluations(parsedResult.evaluations || []);
-
+        renderResults(parsed.evaluations);
       } catch (err) {
-        showError("Analysis failed: " + err.message);
+        alert("Analysis failed: " + err.message);
       } finally {
-        loadingDiv.classList.add('hidden');
+        document.getElementById('loading').style.display = 'none';
       }
     }
 
-    function convertBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
+    function renderResults(evaluations) {
+      if (!evaluations || evaluations.length === 0) {
+        document.getElementById('results').innerHTML = "<p>No parameters detected.</p>";
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Line</th>
+            <th>Test</th>
+            <th>Parameter</th>
+            <th>Result</th>
+            <th>Flag</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      evaluations.forEach(e => {
+        const badgeClass = e.flag === 'ABNORMAL' ? 'abnormal' : 'normal';
+        html += `<tr>
+          <td>${e.lineNumber || ''}</td>
+          <td>${e.testName || ''}</td>
+          <td>${e.parameterName || ''}</td>
+          <td>${e.result || ''}</td>
+          <td class="${badgeClass}">${e.flag}</td>
+          <td>${e.reason || ''}</td>
+        </tr>`;
       });
-    }
 
-    function showError(msg) {
-      const errorDiv = document.getElementById('errorAlert');
-      errorDiv.innerText = msg;
-      errorDiv.classList.remove('hidden');
-    }
-
-    function renderEvaluations(evaluations) {
-      const tbody = document.getElementById('resultsTableBody');
-      const resultsContainer = document.getElementById('resultsContainer');
-      const timestampSpan = document.getElementById('evaluationTimestamp');
-
-      tbody.innerHTML = '';
-      timestampSpan.innerText = new Date().toLocaleTimeString();
-
-      if (evaluations.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">No test parameters identified in image.</td></tr>`;
-      } else {
-        evaluations.forEach(e => {
-          const isAbnormal = (e.flag || '').toUpperCase() === 'ABNORMAL';
-          const rowBg = isAbnormal ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-slate-50/80';
-          const badgeStyle = isAbnormal 
-            ? 'bg-red-100 text-red-800 border-red-200' 
-            : 'bg-emerald-100 text-emerald-800 border-emerald-200';
-
-          const tr = document.createElement('tr');
-          tr.className = `${rowBg} transition`;
-          tr.innerHTML = `
-            <td class="py-3 px-3.5 font-mono text-xs text-slate-500">${e.lineNumber || '-'}</td>
-            <td class="py-3 px-3.5 font-medium text-slate-900">${e.testName || '-'}</td>
-            <td class="py-3 px-3.5 text-slate-700">${e.parameterName || '-'}</td>
-            <td class="py-3 px-3.5 font-semibold text-slate-900">${e.result || '-'}</td>
-            <td class="py-3 px-3.5 text-center">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeStyle}">
-                ${e.flag || 'NORMAL'}
-              </span>
-            </td>
-            <td class="py-3 px-3.5 text-slate-600">${e.reason || '-'}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
-
-      resultsContainer.classList.remove('hidden');
+      html += `</tbody></table>`;
+      document.getElementById('results').innerHTML = html;
     }
   </script>
 </body>
