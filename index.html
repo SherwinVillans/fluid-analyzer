@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Industrial Fluid Analyzer v1.0.4</title>
+  <title>Industrial Fluid Analyzer v1.0.6</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f4f9; color: #333; margin: 0; }
     .card { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -34,7 +34,7 @@
 <body>
 
   <h2 style="display: flex; align-items: center; justify-content: space-between;">
-    <span>Industrial Fluid Analyzer <span class="version-tag">v1.0.4</span></span>
+    <span>Industrial Fluid Analyzer <span class="version-tag">v1.0.6</span></span>
   </h2>
 
   <div class="card">
@@ -85,10 +85,11 @@
   </div>
 
   <footer>
-    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.0.4
+    &copy; 2026 Troy Michael Goldman. All Rights Reserved. &bull; Build v1.0.6
   </footer>
 
   <script>
+    // Obfuscated Base64 string for your FluidAnalyzer key
     const EMBEDDED_KEY_OBFUSCATED = "QVEuQWI4Uk42SU5GSWF6Y2RqWGU5anc5NTVsN1hRSFVUYy1OekJkMThFNy1BakhDMXc=";
 
     let currentStream = null;
@@ -106,7 +107,7 @@
       if (savedKey) return savedKey;
 
       if (EMBEDDED_KEY_OBFUSCATED) {
-        if (EMBEDDED_KEY_OBFUSCATED.startsWith("AIza")) {
+        if (EMBEDDED_KEY_OBFUSCATED.startsWith("AQ.") || EMBEDDED_KEY_OBFUSCATED.startsWith("AIza")) {
           return EMBEDDED_KEY_OBFUSCATED;
         }
         try {
@@ -292,11 +293,14 @@ RULES:
           generationConfig: { responseMimeType: "application/json" }
         };
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
           body: JSON.stringify(payload)
         });
 
