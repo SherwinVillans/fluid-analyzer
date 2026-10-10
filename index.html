@@ -19,14 +19,13 @@
     table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; }
     th, td { border: 1px solid #e0e0e0; padding: 10px; text-align: left; font-size: 0.85em; }
     th { background: #0056b3; color: white; }
-    .abnormal { background-color: #ffdddd; color: #b30000; font-weight: bold; }
-    .normal { background-color: #e6ffe6; color: #008000; }
+    .flag-select { padding: 4px 8px; font-weight: bold; border-radius: 4px; border: 1px solid #ccc; width: auto; margin: 0; }
+    .flag-abnormal { background-color: #ffdddd; color: #b30000; border-color: #ffaaaa; }
+    .flag-normal { background-color: #e6ffe6; color: #008000; border-color: #b2e6b2; }
     #loading { text-align: center; font-weight: bold; color: #0056b3; margin: 15px 0; }
     .key-toggle { font-size: 0.8em; color: #666; cursor: pointer; text-decoration: underline; margin-top: 5px; display: inline-block; }
     footer { text-align: center; font-size: 0.8em; color: #666; padding: 15px 0 5px 0; margin-top: 20px; border-top: 1px solid #e0e0e0; }
-    .rule-input-group { display: flex; gap: 8px; margin-bottom: 8px; }
-    .rule-input-group input { margin: 0; }
-    .rule-input-group button { margin: 0; width: auto; padding: 0 16px; white-space: nowrap; }
+    .memory-badge { font-size: 0.7em; background: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
   </style>
 </head>
 <body>
@@ -53,25 +52,6 @@
       <option value="Other">Other / General Equipment</option>
     </select>
 
-    <!-- Custom Rule Management Section -->
-    <div style="background: #f8f9fa; border: 1px dashed #0056b3; padding: 12px; border-radius: 8px; margin: 10px 0;">
-      <label style="cursor: pointer; color: #0056b3; margin-top: 0;" onclick="toggleRulePanel()">
-        ⚙️ Edit Custom Equipment Threshold Rules
-      </label>
-      
-      <div id="rulePanel" style="display: none; margin-top: 10px;">
-        <p style="font-size: 0.8em; color: #666; margin: 0 0 8px 0;">Add custom parameter limits to flag as ABNORMAL when met or exceeded.</p>
-        
-        <div class="rule-input-group">
-          <input type="text" id="customParamName" placeholder="Parameter (e.g. Iron, Viscosity)">
-          <input type="number" id="customParamLimit" placeholder="Limit (e.g. 50)">
-          <button type="button" onclick="addCustomRule()" style="background: #28a745;">Add</button>
-        </div>
-
-        <ul id="ruleList" style="font-size: 0.85em; padding-left: 20px; margin: 8px 0 0 0;"></ul>
-      </div>
-    </div>
-
     <label>Lab Report Image Capture:</label>
     <div class="camera-container">
       <div id="placeholder" class="placeholder-text">Camera offline. Tap "Start Camera" or select a file.</div>
@@ -90,7 +70,14 @@
   </div>
 
   <div id="loading" style="display:none;">Analyzing report image...</div>
-  <div id="results"></div>
+  
+  <div id="resultsCard" class="card" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0;">Analysis Results</h3>
+      <button type="button" onclick="clearSavedOverrides()" style="width:auto; padding:6px 12px; font-size:0.75em; background:#dc3545;">Reset Learned Rules</button>
+    </div>
+    <div id="results"></div>
+  </div>
 
   <footer>
     &copy; 2026 Troy Michael Goldman. All Rights Reserved.
@@ -102,7 +89,11 @@
     let currentStream = null;
     let facingMode = "environment";
     let capturedImageBase64 = null;
-    let customRules = JSON.parse(localStorage.getItem('user_fluid_rules') || '[]');
+    let currentEvaluations = [];
+
+    // Load saved manual overrides map from localStorage
+    // Key format: "MACHINE_TYPE::PARAMETER_NAME" -> "NORMAL" | "ABNORMAL"
+    let ruleMemory = JSON.parse(localStorage.getItem('fluid_analyzer_rule_memory') || '{}');
 
     function getActiveApiKey() {
       const customKey = document.getElementById('apiKey').value.trim();
@@ -126,54 +117,11 @@
       keySection.style.display = (keySection.style.display === 'none') ? 'block' : 'none';
     }
 
-    function toggleRulePanel() {
-      const panel = document.getElementById('rulePanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-      renderRuleList();
-    }
-
-    function addCustomRule() {
-      const param = document.getElementById('customParamName').value.trim();
-      const limit = document.getElementById('customParamLimit').value.trim();
-
-      if (!param || !limit) {
-        alert("Please enter both a parameter name and numerical threshold limit.");
-        return;
-      }
-
-      customRules.push({ param, limit });
-      localStorage.setItem('user_fluid_rules', JSON.stringify(customRules));
-      
-      document.getElementById('customParamName').value = '';
-      document.getElementById('customParamLimit').value = '';
-      renderRuleList();
-    }
-
-    function deleteCustomRule(index) {
-      customRules.splice(index, 1);
-      localStorage.setItem('user_fluid_rules', JSON.stringify(customRules));
-      renderRuleList();
-    }
-
-    function renderRuleList() {
-      const list = document.getElementById('ruleList');
-      list.innerHTML = '';
-      if (customRules.length === 0) {
-        list.innerHTML = '<li style="color:#888;">No custom rules added.</li>';
-        return;
-      }
-      customRules.forEach((rule, idx) => {
-        list.innerHTML += `<li><b>${rule.param}</b>: ABNORMAL if >= ${rule.limit} 
-          <a href="#" onclick="deleteCustomRule(${idx}); return false;" style="color:red; margin-left:10px;">[Delete]</a></li>`;
-      });
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('gemini_api_key');
       if (savedKey) {
         document.getElementById('apiKey').value = savedKey;
       }
-      renderRuleList();
     });
 
     document.getElementById('apiKey').addEventListener('input', (e) => {
@@ -297,6 +245,7 @@
       }
 
       document.getElementById('loading').style.display = 'block';
+      document.getElementById('resultsCard').style.display = 'none';
       document.getElementById('results').innerHTML = '';
 
       try {
@@ -306,64 +255,13 @@
           capturedImageBase64.indexOf(";")
         ) || "image/jpeg";
 
-        let userRulePrompt = "";
-        if (customRules.length > 0) {
-          userRulePrompt = "\nUSER-DEFINED CUSTOM OVERRIDE RULES:\n" + 
-            customRules.map(r => `• ${r.param}: ABNORMAL if >= ${r.limit}`).join('\n');
-        }
-
         const systemPrompt = `You are an expert industrial fluid analysis evaluator.
-Analyze the provided lab report image based on the specified fluid type and machine application.
+Analyze the provided lab report image completely and extract ALL line items and parameters.
 
-GLOBAL RULE:
-1. Assign flags strictly as "NORMAL" or "ABNORMAL". Do NOT use "MONITOR" or "CRITICAL". Any value meeting or exceeding a "Monitor" or "Abnormal" threshold listed below MUST be flagged as "ABNORMAL".
-2. HARD RULE FOR DIESEL FUEL: Any ISO Cleanliness Code exceeding 18/16/13 (such as 19/19/17, 18/17/14, 18/17/13) MUST be flagged as "ABNORMAL".
-
-ISO 4406 CLEANLINESS HARD LIMITS BY APPLICATION:
-- HYDRAULICS:
-  • Normal up to xx/18/15.
-  • ABNORMAL if the second digit (6µm micron scale) is 19 or higher (e.g. xx/19/xx, 20/19/16).
-- GEARBOXES (Final Drive, Swing Machinery, Industrial Gearboxes):
-  • Highest acceptable normal level is xx/19/16.
-  • ABNORMAL if the second digit (6µm micron scale) is 20 or higher (e.g. xx/20/xx, 22/20/17).
-
-EQUIPMENT WEAR & CONTAMINANT HARD LIMITS (PPM / Index):
-Evaluate elements against the specific equipment type rules below. Flag as "ABNORMAL" if the detected result reaches or exceeds the lower limit listed:
-
-- Engine Assy:
-  • Iron (Fe): ABNORMAL if >= 100
-  • Copper (Cu): ABNORMAL if >= 25
-  • Chromium (Cr): ABNORMAL if >= 10
-  • Aluminum (Al): ABNORMAL if >= 8
-  • Silicon (Si): ABNORMAL if >= 20
-  • Lead (Pb): ABNORMAL if >= 40
-  • Sodium (Na): ABNORMAL if >= 50
-  • PQ Index: ABNORMAL if >= 24
-
-- HYDRAULIC:
-  • Iron (Fe): ABNORMAL if >= 40
-  • Copper (Cu): ABNORMAL if >= 200
-  • Silicon (Si): ABNORMAL if >= 10
-  • Lead (Pb): ABNORMAL if >= 30
-  • PQ Index: ABNORMAL if >= 16
-
-- FINAL DRIVE (Gearbox):
-  • Iron (Fe): ABNORMAL if >= 500
-  • Copper (Cu): ABNORMAL if >= 100
-  • Silicon (Si): ABNORMAL if >= 30
-  • Lead (Pb): ABNORMAL if >= 100
-  • PQ Index: ABNORMAL if >= 166
-
-- SWING MACHINERY (Gearbox):
-  • Iron (Fe): ABNORMAL if >= 400
-  • Copper (Cu): ABNORMAL if >= 100
-  • Silicon (Si): ABNORMAL if >= 40
-  • Lead (Pb): ABNORMAL if >= 40
-  • PQ Index: ABNORMAL if >= 51
-${userRulePrompt}
-
-JSON SCHEMA:
-Return output strictly as valid JSON matching this schema:
+RULES:
+1. Extract and evaluate ALL tested parameters (viscosity, wear metals, ISO cleanliness codes, additive levels, water content, contaminants, etc.).
+2. Assign flags strictly as "NORMAL" or "ABNORMAL". Do NOT use "MONITOR" or "CRITICAL".
+3. Return output strictly as valid JSON matching this schema:
 {
   "evaluations": [
     {
@@ -382,7 +280,7 @@ Return output strictly as valid JSON matching this schema:
           contents: [{
             parts: [
               { inline_data: { mime_type: mimeType, data: imageRaw } },
-              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nAnalyze line-by-line using the matching equipment rules.` }
+              { text: `Fluid Type: ${fluidType}\nMachine Application: ${machineType}\nExtract and evaluate all parameters line-by-line.` }
             ]
           }],
           generationConfig: { responseMimeType: "application/json" }
@@ -405,7 +303,8 @@ Return output strictly as valid JSON matching this schema:
         const jsonText = data.candidates[0].content.parts[0].text;
         const parsed = JSON.parse(jsonText);
 
-        renderResults(parsed.evaluations);
+        currentEvaluations = parsed.evaluations || [];
+        applyStoredRulesAndRender(machineType);
       } catch (err) {
         alert("Analysis failed: " + err.message);
       } finally {
@@ -413,19 +312,51 @@ Return output strictly as valid JSON matching this schema:
       }
     }
 
-    function renderResults(evaluations) {
-      if (!evaluations || evaluations.length === 0) {
-        document.getElementById('results').innerHTML = "<p>No parameters detected.</p>";
-        return;
+    function applyStoredRulesAndRender(machineType) {
+      // Check each parameter against user's saved overrides
+      currentEvaluations.forEach(item => {
+        const ruleKey = `${machineType}::${(item.parameterName || '').trim().toUpperCase()}`;
+        if (ruleMemory[ruleKey]) {
+          item.flag = ruleMemory[ruleKey];
+          item.isOverridden = true;
+        } else {
+          item.isOverridden = false;
+        }
+      });
+
+      renderResultsTable(machineType);
+    }
+
+    function handleFlagChange(index, machineType, selectElement) {
+      const newFlag = selectElement.value;
+      const item = currentEvaluations[index];
+      item.flag = newFlag;
+      item.isOverridden = true;
+
+      // Save override rule permanently to localStorage
+      const ruleKey = `${machineType}::${(item.parameterName || '').trim().toUpperCase()}`;
+      ruleMemory[ruleKey] = newFlag;
+      localStorage.setItem('fluid_analyzer_rule_memory', JSON.stringify(ruleMemory));
+
+      // Refresh styling
+      selectElement.className = `flag-select ${newFlag === 'ABNORMAL' ? 'flag-abnormal' : 'flag-normal'}`;
+    }
+
+    function clearSavedOverrides() {
+      if (confirm("Reset all learned flag rules for this device?")) {
+        localStorage.removeItem('fluid_analyzer_rule_memory');
+        ruleMemory = {};
+        const machineType = document.getElementById('machineType').value;
+        currentEvaluations.forEach(i => i.isOverridden = false);
+        renderResultsTable(machineType);
       }
+    }
 
-      const flaggedEvaluations = evaluations.filter(e => e.flag === 'ABNORMAL');
+    function renderResultsTable(machineType) {
+      document.getElementById('resultsCard').style.display = 'block';
 
-      if (flaggedEvaluations.length === 0) {
-        document.getElementById('results').innerHTML = `
-          <div style="background-color: #e6ffe6; color: #008000; padding: 15px; border-radius: 8px; border: 1px solid #b2e6b2; text-align: center; font-weight: bold; margin-top: 15px;">
-            All parameters are within normal operating limits. No abnormal issues detected.
-          </div>`;
+      if (!currentEvaluations || currentEvaluations.length === 0) {
+        document.getElementById('results').innerHTML = "<p>No parameters detected.</p>";
         return;
       }
 
@@ -433,22 +364,30 @@ Return output strictly as valid JSON matching this schema:
         <thead>
           <tr>
             <th>Line</th>
-            <th>Test</th>
-            <th>Parameter</th>
+            <th>Test / Parameter</th>
             <th>Result</th>
-            <th>Flag</th>
+            <th>Flag Status (Tap to adjust)</th>
             <th>Reason</th>
           </tr>
         </thead>
         <tbody>`;
 
-      flaggedEvaluations.forEach(e => {
+      currentEvaluations.forEach((e, idx) => {
+        const isAbnormal = e.flag === 'ABNORMAL';
+        const selectClass = isAbnormal ? 'flag-abnormal' : 'flag-normal';
+        const memoryBadge = e.isOverridden ? `<span class="memory-badge">Learned</span>` : '';
+
         html += `<tr>
           <td>${e.lineNumber || ''}</td>
-          <td>${e.testName || ''}</td>
-          <td>${e.parameterName || ''}</td>
+          <td><b>${e.parameterName || ''}</b><br><small style="color:#666;">${e.testName || ''}</small></td>
           <td>${e.result || ''}</td>
-          <td class="abnormal">${e.flag}</td>
+          <td>
+            <select class="flag-select ${selectClass}" onchange="handleFlagChange(${idx}, '${machineType}', this)">
+              <option value="NORMAL" ${!isAbnormal ? 'selected' : ''}>NORMAL</option>
+              <option value="ABNORMAL" ${isAbnormal ? 'selected' : ''}>ABNORMAL</option>
+            </select>
+            ${memoryBadge}
+          </td>
           <td>${e.reason || ''}</td>
         </tr>`;
       });
